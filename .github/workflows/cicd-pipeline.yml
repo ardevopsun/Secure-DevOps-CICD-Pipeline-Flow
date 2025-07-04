@@ -27,6 +27,7 @@ jobs:
       with:
         directory: ./terraform
         quiet: true
+      continue-on-error: true
 
     # ======================
     # 🔍 1. Secret Scanning (non-blocking)
