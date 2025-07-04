@@ -12,7 +12,7 @@ env:
   EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
   AWS_REGION: us-east-1
   ECS_CLUSTER: secure-devops-cluster
-  ECS_SERVICE: rontend-backend-service
+  ECS_SERVICE: frontend-backend-service
   TASK_DEFINITION: .github/ecs/task-def.json
 
 jobs:
@@ -20,33 +20,33 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
+    - name: 📥 Checkout code
       uses: actions/checkout@v3
 
-    # 🛡️ Checkov Terraform Scanning
-    - name: Run Checkov - Scan Terraform
+    # ✅ Checkov - Terraform scanning
+    - name: 🔐 Run Checkov
       uses: bridgecrewio/checkov-action@master
       with:
         directory: ./terraform
         quiet: true
       continue-on-error: true
 
-    # 🔍 Gitleaks Secret Scanning
-    - name: Run Gitleaks for secret scanning
+    # ✅ Gitleaks - Secrets scanning
+    - name: 🔍 Run Gitleaks (non-blocking)
       continue-on-error: true
       uses: gitleaks/gitleaks-action@v2
       with:
         scan_args: "--verbose --redact --exit-code=0"
 
-    - name: Upload Gitleaks Results
+    - name: 📦 Upload Gitleaks Report
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: gitleaks-report
         path: results.sarif
 
-    # 📊 SonarQube Scan - Backend
-    - name: SonarQube Scan (Backend)
+    # ✅ SonarQube Scan
+    - name: 📊 SonarQube Scan (Backend)
       uses: SonarSource/sonarqube-scan-action@v2
       with:
         projectBaseDir: ./backend
@@ -56,20 +56,20 @@ jobs:
           -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }}
           -Dsonar.login=${{ secrets.SONAR_TOKEN }}
 
-    # 🐳 Docker Build & Push
-    - name: Set up Docker Buildx
+    # ✅ Docker Setup
+    - name: 🐳 Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Login to Docker Hub
+    - name: 🔐 Login to Docker Hub
       uses: docker/login-action@v3
       with:
         username: ${{ env.DOCKERHUB_USERNAME }}
         password: ${{ env.DOCKERHUB_PASSWORD }}
 
-    - name: Set IMAGE_TAG
+    - name: 🔖 Set IMAGE_TAG from Git SHA
       run: echo "IMAGE_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
-    - name: Build & Push Frontend Image
+    - name: 🛠️ Build & Push Frontend Image
       uses: docker/build-push-action@v5
       with:
         context: ./frontend
@@ -78,7 +78,7 @@ jobs:
           ardevopsun/frontend:latest
           ardevopsun/frontend:${{ env.IMAGE_TAG }}
 
-    - name: Build & Push Backend Image
+    - name: 🛠️ Build & Push Backend Image
       uses: docker/build-push-action@v5
       with:
         context: ./backend
@@ -87,74 +87,68 @@ jobs:
           ardevopsun/backend:latest
           ardevopsun/backend:${{ env.IMAGE_TAG }}
 
-    # 🛡️ Trivy Scan
-    - name: Scan Frontend Image with Trivy
+    # ✅ Trivy Scans
+    - name: 🔎 Trivy Scan (Frontend)
       uses: aquasecurity/trivy-action@master
       with:
         image-ref: ardevopsun/frontend:${{ env.IMAGE_TAG }}
         format: table
         exit-code: 0
 
-    - name: Scan Backend Image with Trivy
+    - name: 🔎 Trivy Scan (Backend)
       uses: aquasecurity/trivy-action@master
       with:
         image-ref: ardevopsun/backend:${{ env.IMAGE_TAG }}
         format: table
         exit-code: 0
 
-    # 🚀 Deploy to EC2
-    - name: Setup SSH
+    # ✅ EC2 Docker Deployment
+    - name: 🔐 Setup SSH
       run: |
         mkdir -p ~/.ssh
         echo "${EC2_SSH_KEY}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
         ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
 
-    - name: Deploy to EC2
+    - name: 🚀 Deploy to EC2
       run: |
         ssh $EC2_USER@$EC2_HOST << EOF
           docker pull ardevopsun/frontend:latest
           docker pull ardevopsun/backend:latest
-
           docker stop frontend || true && docker rm frontend || true
           docker stop backend || true && docker rm backend || true
-
           docker run -d --name frontend -p 80:80 ardevopsun/frontend:latest
           docker run -d --name backend -p 3000:3000 ardevopsun/backend:latest
         EOF
 
-    # ========================
-    # 🚀 Update ECS Task & Service
-    # ========================
-    - name: Configure AWS credentials
+    # ✅ ECS Update (Task + Service)
+    - name: 🔐 Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v2
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
-    # 🧩 Render ECS task definition
-    - name: Render ECS Task Definition
-      id: render-task
+    - name: 🧩 Render ECS Task Definition (Frontend)
+      id: render-frontend
       uses: aws-actions/amazon-ecs-render-task-definition@v1
       with:
-        task-definition: .github/ecs/task-def.json
+        task-definition: ${{ env.TASK_DEFINITION }}
         container-name: frontend
-        image: ardevopsun/frontend:latest
+        image: ardevopsun/frontend:${{ env.IMAGE_TAG }}
 
-    - name: Update ECS Task Definition - Backend
+    - name: 🧩 Render ECS Task Definition (Backend)
       id: render-backend
       uses: aws-actions/amazon-ecs-render-task-definition@v1
       with:
-        task-definition: ${{ steps.render-task.outputs.task-definition }}
+        task-definition: ${{ steps.render-frontend.outputs.task-definition }}
         container-name: backend
         image: ardevopsun/backend:${{ env.IMAGE_TAG }}
 
-    # 🔁 Deploy to ECS
-    - name: Deploy ECS Task
+    - name: 🚀 Deploy Updated ECS Task
       uses: aws-actions/amazon-ecs-deploy-task-definition@v1
       with:
-        task-definition: ${{ steps.render-task.outputs.task-definition }}
-        service: rontend-backend-service
-        cluster: secure-devops-cluster
+        task-definition: ${{ steps.render-backend.outputs.task-definition }}
+        service: ${{ env.ECS_SERVICE }}
+        cluster: ${{ env.ECS_CLUSTER }}
         wait-for-service-stability: true
