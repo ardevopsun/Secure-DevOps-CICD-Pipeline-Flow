@@ -137,5 +137,5 @@ jobs:
       run: |
         aws ecs update-service \
           --cluster secure-devops-cluster \
-          --service frontend-backend-service \
+          --service rontend-backend-service \
           --force-new-deployment
