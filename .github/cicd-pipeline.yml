@@ -1,0 +1,98 @@
+name: Secure DevOps CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+  DOCKERHUB_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+  EC2_HOST: ${{ secrets.EC2_HOST }}
+  EC2_USER: ${{ secrets.EC2_USER }}
+  EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Checkout Code
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    # ======================
+    # 🔍 1. Secret Scanning
+    # ======================
+    - name: Run Gitleaks for secret scanning
+      uses: gitleaks/gitleaks-action@v2
+      with:
+        args: "--verbose --redact"
+
+    # ======================
+    # 🐳 2. Docker Build + Trivy
+    # ======================
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ env.DOCKERHUB_USERNAME }}
+        password: ${{ env.DOCKERHUB_PASSWORD }}
+
+    - name: Build and push frontend image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./frontend
+        push: true
+        tags: ardevopsun/frontend:latest
+
+    - name: Build and push backend image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        push: true
+        tags: ardevopsun/backend:latest
+
+    - name: Scan Frontend Image with Trivy
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ardevopsun/frontend:latest
+        format: table
+        exit-code: 0
+
+    - name: Scan Backend Image with Trivy
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ardevopsun/backend:latest
+        format: table
+        exit-code: 0
+
+    # =========================
+    # 🚀 3. SSH into EC2 & Deploy
+    # =========================
+    - name: Setup SSH key
+      run: |
+        mkdir -p ~/.ssh
+        echo "${EC2_SSH_KEY}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
+
+    - name: Deploy to EC2
+      run: |
+        ssh $EC2_USER@$EC2_HOST << 'EOF'
+          docker pull ardevopsun/frontend:latest
+          docker pull ardevopsun/backend:latest
+
+          docker stop frontend || true && docker rm frontend || true
+          docker stop backend || true && docker rm backend || true
+
+          docker run -d --name frontend -p 80:80 ardevopsun/frontend:latest
+
+          docker run -d --name backend \
+            -e DB_HOST=<RDS_ENDPOINT> \
+            -e DB_USER=<DB_USERNAME> \
+            -e DB_PASSWORD=<DB_PASSWORD> \
+            -e DB_NAME=secure_devops \
+            -p 3000:3000 ardevopsun/backend:latest
+        EOF
