@@ -19,6 +19,14 @@ jobs:
     # Checkout Code
     - name: Checkout code
       uses: actions/checkout@v3
+    # ======================
+    # 🔐 0. Checkov - Terraform Security Scanning
+    # ======================
+    - name: Run Checkov - Scan Terraform
+      uses: bridgecrewio/checkov-action@master
+      with:
+        directory: ./terraform
+        quiet: true
 
     # ======================
     # 🔍 1. Secret Scanning (non-blocking)
@@ -35,6 +43,21 @@ jobs:
       with:
         name: gitleaks-report
         path: results.sarif
+
+    # ======================
+    # 📊 0.1 SonarQube Analysis (Backend)
+    # ======================
+    - name: SonarQube Scan (Backend)
+      uses: SonarSource/sonarqube-scan-action@v2
+      with:
+        projectBaseDir: ./backend
+        args: >
+          -Dsonar.projectKey=secure-backend
+          -Dsonar.organization=default
+          -Dsonar.sources=.
+          -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }}
+          -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+
 
     # ======================
     # 🐳 2. Docker Build + Trivy
