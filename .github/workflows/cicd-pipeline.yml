@@ -133,13 +133,14 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
-    - name: Render new ECS task definition
+    # 🧩 Render ECS task definition
+    - name: Render ECS Task Definition
       id: render-task
       uses: aws-actions/amazon-ecs-render-task-definition@v1
       with:
-        task-definition: ${{ env.TASK_DEFINITION }}
+        task-definition: .github/ecs/task-def.json
         container-name: frontend
-        image: ardevopsun/frontend:${{ env.IMAGE_TAG }}
+        image: ardevopsun/frontend:latest
 
     - name: Update ECS Task Definition - Backend
       id: render-backend
@@ -149,10 +150,11 @@ jobs:
         container-name: backend
         image: ardevopsun/backend:${{ env.IMAGE_TAG }}
 
-    - name: Deploy new task to ECS
+    # 🔁 Deploy to ECS
+    - name: Deploy ECS Task
       uses: aws-actions/amazon-ecs-deploy-task-definition@v1
       with:
-        cluster: ${{ env.ECS_CLUSTER }}
-        service: ${{ env.ECS_SERVICE }}
-        task-definition: ${{ steps.render-backend.outputs.task-definition }}
+        task-definition: ${{ steps.render-task.outputs.task-definition }}
+        service: rontend-backend-service
+        cluster: secure-devops-cluster
         wait-for-service-stability: true
