@@ -12,7 +12,7 @@ env:
   EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
   AWS_REGION: us-east-1
   ECS_CLUSTER: secure-devops-cluster
-  ECS_SERVICE: frontend-backend-service
+  ECS_SERVICE: rontend-backend-service
   TASK_DEFINITION: .github/ecs/task-def.json
 
 jobs:
