@@ -19,6 +19,7 @@ jobs:
     # Checkout Code
     - name: Checkout code
       uses: actions/checkout@v3
+
     # ======================
     # 🔐 0. Checkov - Terraform Security Scanning
     # ======================
@@ -58,7 +59,6 @@ jobs:
           -Dsonar.sources=.
           -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }}
           -Dsonar.login=${{ secrets.SONAR_TOKEN }}
-
 
     # ======================
     # 🐳 2. Docker Build + Trivy
@@ -120,6 +120,22 @@ jobs:
           docker stop backend || true && docker rm backend || true
 
           docker run -d --name frontend -p 80:80 ardevopsun/frontend:latest
-
           docker run -d --name backend -p 3000:3000 ardevopsun/backend:latest
         EOF
+
+    # =========================
+    # 🚀 4. Update ECS Service to use latest Docker images
+    # =========================
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+
+    - name: Force ECS service deployment
+      run: |
+        aws ecs update-service \
+          --cluster secure-devops-cluster \
+          --service frontend-backend-service \
+          --force-new-deployment
