@@ -19,7 +19,7 @@ function App() {
 
   return (
     <div style={{ maxWidth: '600px', margin: '100px auto', textAlign: 'center' }}>
-      <h2>🛡️ Secure DevOps Frontend</h2>
+      <h2>🛡️ Secure DevOps Frontend New</h2>
       <form onSubmit={handleSubmit}>
         <textarea
           rows="5"
