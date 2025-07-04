@@ -8,7 +8,7 @@ function App() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('http://<BACKEND_PUBLIC_IP>:3000/api/feedback', { message });
+      await axios.post('http://3.83.81.108:3000/api/feedback', { message });
       setStatus('Message submitted successfully!');
       setMessage('');
     } catch (error) {
