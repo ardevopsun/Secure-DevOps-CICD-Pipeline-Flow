@@ -1,11 +1,43 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Secure DevOps Frontend New</title>
+  <title>Secure DevOps Frontend — CI/CD Test</title>
+  <script>
+    async function saveData(e) {
+      e.preventDefault();
+      const key = document.getElementById('key').value;
+      const value = document.getElementById('value').value;
+      await fetch('/save', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ key, value })
+      });
+      loadData();
+    }
+
+    async function loadData() {
+      const res = await fetch('/data');
+      const rows = await res.json();
+      const table = document.getElementById('data-table');
+      table.innerHTML = rows.map(r => `<tr><td>${r.key}</td><td>${r.value}</td></tr>`).join('');
+    }
+
+    window.addEventListener('DOMContentLoaded', loadData);
+  </script>
 </head>
 <body>
-  <div id="root"></div>
+  <h1>Secure DevOps Frontend — CI/CD Test</h1>
+  <form onsubmit="saveData(event)">
+    <input type="text" id="key" required placeholder="Key" />
+    <input type="text" id="value" required placeholder="Value" />
+    <button type="submit">Save</button>
+  </form>
+  <table border="1">
+    <thead>
+      <tr><th>Key</th><th>Value</th></tr>
+    </thead>
+    <tbody id="data-table"></tbody>
+  </table>
 </body>
 </html>

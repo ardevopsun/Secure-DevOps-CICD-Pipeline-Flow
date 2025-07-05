@@ -1,27 +1,46 @@
 const express = require('express');
 const cors = require('cors');
-const app = express();
+const { Pool } = require('pg');
 
-// Middleware
+const app = express();
 app.use(cors());
 app.use(express.json());
 
-// POST /api/feedback endpoint
-app.post('/api/feedback', (req, res) => {
-  const { message } = req.body;
+const pool = new Pool({
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT || 5432,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+});
 
-  if (!message) {
-    return res.status(400).json({ error: 'Message is required' });
+app.get('/', (req, res) => {
+  res.send('<h1>Secure DevOps Backend API</h1>');
+});
+
+app.post('/save', async (req, res) => {
+  const { key, value } = req.body;
+  try {
+    await pool.query(
+      'INSERT INTO secure_data(key, value) VALUES($1, $2)',
+      [key, value]
+    );
+    res.json({ status: 'ok' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'db error' });
   }
-
-  // Log to console instead of DB
-  console.log(`📝 Received feedback: ${message}`);
-
-  res.status(200).json({ message: '✅ Feedback received successfully (no DB).' });
 });
 
-// Start server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 Backend server is running on port ${PORT}`);
+app.get('/data', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT key, value FROM secure_data');
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'db error' });
+  }
 });
+
+const port = process.env.PORT || 3000;
+app.listen(port, () => console.log(`Backend running on port ${port}`));

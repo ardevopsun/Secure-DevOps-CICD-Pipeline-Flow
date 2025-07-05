@@ -14,6 +14,8 @@ env:
   ECS_CLUSTER: secure-devops-cluster
   ECS_SERVICE: rontend-backend-service
   TASK_DEFINITION: .github/ecs/task-def.json
+  SONARQUBE_TASK_DEF: .github/ecs/sonarqube-task-def.json
+  SONARQUBE_SERVICE: sonarqube-service
 
 jobs:
   build-and-deploy:
@@ -121,7 +123,7 @@ jobs:
           docker run -d --name backend -p 3000:3000 ardevopsun/backend:latest
         EOF
 
-    # ✅ ECS Update (Task + Service)
+    # ✅ ECS Update (Frontend + Backend)
     - name: 🔐 Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v2
       with:
@@ -150,5 +152,22 @@ jobs:
       with:
         task-definition: ${{ steps.render-backend.outputs.task-definition }}
         service: ${{ env.ECS_SERVICE }}
+        cluster: ${{ env.ECS_CLUSTER }}
+        wait-for-service-stability: true
+
+    # ✅ Deploy SonarQube on ECS
+    - name: 🧩 Render SonarQube ECS Task Definition
+      id: render-sonarqube
+      uses: aws-actions/amazon-ecs-render-task-definition@v1
+      with:
+        task-definition: ${{ env.SONARQUBE_TASK_DEF }}
+        container-name: sonarqube
+        image: sonarqube:latest
+
+    - name: 🚀 Deploy SonarQube ECS Service
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+      with:
+        task-definition: ${{ steps.render-sonarqube.outputs.task-definition }}
+        service: ${{ env.SONARQUBE_SERVICE }}
         cluster: ${{ env.ECS_CLUSTER }}
         wait-for-service-stability: true

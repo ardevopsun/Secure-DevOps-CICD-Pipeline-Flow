@@ -20,6 +20,13 @@
       "essential": true,
       "portMappings": [
         { "containerPort": 3000, "hostPort": 3000 }
+      ],
+      "environment": [
+        { "name": "DB_HOST", "value": "<RDS_ENDPOINT>" },
+        { "name": "DB_PORT", "value": "5432" },
+        { "name": "DB_USER", "value": "<DB_USERNAME>" },
+        { "name": "DB_PASSWORD", "value": "<DB_PASSWORD>" },
+        { "name": "DB_NAME", "value": "<DB_NAME>" }
       ]
     }
   ],

@@ -1,0 +1,22 @@
+{
+  "family": "sonarqube-task",
+  "networkMode": "bridge",
+  "containerDefinitions": [
+    {
+      "name": "sonarqube",
+      "image": "sonarqube:latest",
+      "memory": 1024,
+      "cpu": 512,
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 9000,
+          "hostPort": 9000
+        }
+      ]
+    }
+  ],
+  "requiresCompatibilities": ["EC2"],
+  "cpu": "512",
+  "memory": "1024"
+}
